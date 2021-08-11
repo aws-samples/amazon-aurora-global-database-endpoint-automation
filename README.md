@@ -57,14 +57,16 @@ This command will execute the cloudformation template and create all required re
  python3 create_hosted_zone.py --cluster-cname-pair='{"gdb-cluster1":"writer1.myhostedzone.com" ,"gdb-cluster2":"writer2.myhostedzone.com"}' --hosted-zone-name=writer2.myhostedzone.com --region us-east-1
  ```
 
-    **What do these parameters mean?**  
+**What do these parameters mean?**  
     
-    The script takes following parameters:  
-    
-    **-c OR --cluster-cname-pair** : Cluster and writer endpoint pair in '{\"cluname\":\"writer\"}' format. **(Required)**  
-    **-z OR --hosted-zone-name** :  Name of the hosted zone. If one doesn't exist, it will be created. **(Required)**  
-    **-r OR --region** : Region Name. If no region is provided, default region is used. **(Optional)**  
-    **-sv OR --skip-vpc** : Skips adding vpcs in the hosted zone, if using an existing hosted zone. **(Optional)**  
+The script takes following parameters:  
+
+**-c OR --cluster-cname-pair** : Cluster and writer endpoint pair in '{\"cluname\":\"writer\"}' format. **(Required)**  
+**-z OR --hosted-zone-name** :  Name of the hosted zone. If one doesn't exist, it will be created. **(Required)**  
+**-r OR --region** : Region Name. If no region is provided, default region is used. **(Optional)**  
+**-sv OR --skip-vpc** : Skips adding vpcs in the hosted zone, if using an existing hosted zone. **(Optional)**  
+
+If you made any mistakes, no worries. You can just re-run it. The script is idempotent. When a new global clusters need to be added, you can just re-run it with the new global-cluster CNAME pair. 
 
 ## What resources will this solution create?
 
