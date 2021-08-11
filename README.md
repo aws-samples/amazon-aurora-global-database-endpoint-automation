@@ -70,7 +70,7 @@ This command will execute the cloudformation template and create all required re
 
 After deploying this solution, you will see two types of resources:
 
- 1. **Global resource:**
+ 1. **Global resources:**
  * **Private Hosted Zone (Route 53)**: A private hosted Zone will be created based on the values you passed.
  * **CNAME**: A CNAME will be created inside the hosted zone based on the parameters you passed.
 
