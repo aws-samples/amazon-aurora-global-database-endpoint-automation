@@ -1,0 +1,211 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create supporting resources for automated global database endpoint management.
+
+Resources:
+  
+  #Create the DynamoDB table and attributes to hold global cluster and cname information
+  gdbmanagedepddbtbl:
+    Type: AWS::DynamoDB::Table
+    Properties: 
+        AttributeDefinitions: 
+          - 
+            AttributeName: "clustername"
+            AttributeType: "S"
+        KeySchema:
+          -
+            AttributeName: "clustername"
+            KeyType: "HASH"
+        TableName: "gdbcnamepair"
+        BillingMode: "PAY_PER_REQUEST"
+        Tags:
+        - Key: Name
+          Value: gdb-managed-endpoint-lambda-DDBTable
+
+  #Create the lambda function that does the work. Lambda code is included inline.
+  gdbmanagedeplambda:
+    Type: AWS::Lambda::Function
+    DependsOn: gdbmanagedeprole
+    Properties:
+      FunctionName: gdb-managed-endpoint
+      Description: Lambda function that manages the writer endpoint, when the global database failover completes in this region. This Lambda is triggered by an event bridge rule.
+      Handler: index.lambda_handler
+      Role: !GetAtt gdbmanagedeprole.Arn
+      Runtime: python3.8
+      Timeout: 600
+      Tags:
+        - Key: Name
+          Value: gdb-managed-endpoint-lambda-function
+      Code:
+        ZipFile: |
+          import json
+          import string
+          import boto3
+
+          def lambda_handler(event, context):
+              
+              # boto3 Rout53 client
+              dnsclient = boto3.client("route53")
+              
+              # boto3 DynamoDB client
+              ddbclient=boto3.client('dynamodb')
+              
+              # dump the received event in json format
+              mymsg=json.dumps(event)
+              
+              # Parse the json event to gather Event ID, cluster ARN, region for the cluster, and the clustername
+              # mymsg = event['detail']['Message']
+              
+              eventid= event['detail']['EventID']
+              resourcename = event['resources'][0]
+              resourcename = resourcename.split(':')
+              regioname = resourcename[3]
+              cluname = resourcename[6]
+
+              # get the matching record from DDB table
+              dresponse = ddbclient.get_item(
+                          TableName='gdbcnamepair',
+                          Key = {
+                                  'clustername':{'S':cluname}
+                          }
+              )
+              
+              # only process further if matching record was found in DDB table, else ignore
+              if 'Item' in dresponse:
+
+                  # Grab the cname record to update
+                  recorname1=dresponse['Item']['recordname']['S']
+                  
+                  # Grab the hosted zone ID
+                  hzID=dresponse['Item']['hostedzoneid']['S']
+
+                  # Only process event if the the global database failover completed
+                  if eventid == "RDS-EVENT-0185":
+                      print("Message is: ",mymsg)
+                      print("Event Id is: ", eventid)
+                      print("Region is ",regioname)
+                      print("Cluster name is: ",cluname)
+                      
+                      # boto3 rds client for appropriate region
+                      gdbclientw = boto3.client("rds",regioname)
+                      
+                      #Grab  writer DNS endpoints
+                      response1=gdbclientw.describe_db_cluster_endpoints(DBClusterIdentifier = cluname)
+                      
+                      # Only process writer endoint that is currently active
+                      for j in response1 ['DBClusterEndpoints']:
+                          if (j['EndpointType']=="WRITER" and j['Status']=='available'):
+                              
+                              print("Current writer endpoint: ",j['Endpoint'])
+                              writerep=j['Endpoint']
+                              
+                              # switch the cname record to the current DNS endpoint of the writer
+                              responsed = dnsclient.change_resource_record_sets(
+                              HostedZoneId = hzID,
+                              ChangeBatch={
+                                  "Comment": "Switching endpoint on failover",
+                                  "Changes": [
+                                      {
+                                          "Action": "UPSERT",
+                                          "ResourceRecordSet": {
+                                              "Name": recorname1,
+                                              "Type": "CNAME",
+                                              "TTL": 1,
+                                              "ResourceRecords": [{"Value": writerep }]
+                                          }
+                                      }
+                                  ]
+                              }
+                          )
+                          
+                              # report cname update status. sucess retuns code 200.
+                              if (responsed['ResponseMetadata']['HTTPStatusCode']) == 200:
+                                  print("Cname ",recorname1,"Successsfully updated to endpoint ",writerep)
+                              else:
+                                  print("Error updateing cnname")
+
+                          # skip if the endpoint is not active
+                          elif (j['EndpointType']=="WRITER" and j['Status']=='inactive'):
+                              print("This is a writer enpoint of a secondary region, skipping")    
+                      
+                      return {
+                          'statusCode': 200,
+                          'body': json.dumps('event processed')
+                  }
+                  else:
+                      return {
+                          'statusCode': 100,
+                          'body': json.dumps('event discarded!')
+                  }
+              else:
+                  print("Cluster entry not found int the table. Event discarded.")
+
+  #Create the eventbridge rule. This rule triggers everything a global database completes failover.
+  gdbmanagedepeventbrule:
+    Type: AWS::Events::Rule
+    DependsOn: gdbmanagedeplambda
+    Properties: 
+      Description: Event Bridge rule to track Aurora global database failover in this region
+      EventPattern:
+        source: 
+          - "aws.rds"
+        detail-type: 
+          - "RDS DB Cluster Event"
+        detail: 
+          EventCategories: 
+            - "global-failover"
+          EventID:
+            - "RDS-EVENT-0185"
+      Name: AuroraGDBfailovertracking
+      Targets: 
+        - Arn: !GetAtt gdbmanagedeplambda.Arn
+          Id: "gdblambdatarget"
+      # Tags:
+      #     - Key: Name
+      #       Value: gdb-managed-endpoint-event-rule
+  
+  #Add  the lambda permission so it can be invoked by the rule
+  gdbmanagedeplambdapermission:
+    Type: AWS::Lambda::Permission
+    DependsOn: gdbmanagedepeventbrule
+    Properties: 
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt gdbmanagedeplambda.Arn
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt gdbmanagedepeventbrule.Arn
+
+  #Create the role needed for the lambda function.
+  gdbmanagedeprole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName:
+        Fn::Join:
+          - '-'
+          - - gdb-managed-ep-role
+            - Fn::Select:
+                - 4
+                - Fn::Split:
+                    - '-'
+                    - Fn::Select:
+                        - 2
+                        - Fn::Split:
+                            - /
+                            - Ref: AWS::StackId
+      Description: Role to permit the Lambda  function to interact with relevant AWS APIs.
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - sts:AssumeRole
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+      ManagedPolicyArns: 
+        - arn:aws:iam::aws:policy/AmazonRDSFullAccess
+        - arn:aws:iam::aws:policy/CloudWatchFullAccess
+        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+        - arn:aws:iam::aws:policy/AmazonRoute53FullAccess
+      Tags:
+        - Key: Name
+          Value: gdb-managed-endpoint-lambda-role
+  
