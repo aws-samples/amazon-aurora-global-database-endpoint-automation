@@ -65,5 +65,11 @@ This command will execute the cloudformation template and create all required re
     **-r OR --region** : Region Name. If no region is provided, default region is used. **(Optional)**  
     **-sv OR --skip-vpc** : Skips adding vpcs in the hosted zone, if using an existing hosted zone. **(Optional)**  
 
+## Current Limitations
+
+* **Partial SSL Support** - Since the solution uses a Route 53 CNAME, the SSL certificate will not be able to validate the aurora servername. For example pgsql client [verify-full](https://www.postgresql.org/docs/9.1/libpq-ssl.html) or mysql client [ssl-verify-server-cert](https://dev.mysql.com/doc/refman/5.7/en/connection-options.html#option_general_ssl-verify-server-cert) will fail to validate server identity.
+* **Only supports [Managed planned failover](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database-disaster-recovery.html#aurora-global-database-disaster-recovery.managed-failover)** - If you do a manual failover by braking the global database cluster and then promoting the secondary region cluster tp primary (detach and promote). This solution will not be able to detect that condition.
+
+
 ## License Summary
 This sample code is made available under a modified MIT license. See the LICENSE file.
