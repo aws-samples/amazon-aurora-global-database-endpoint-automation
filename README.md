@@ -2,6 +2,7 @@
 
 This solution includes a cloudformation template and a python script. This document will describe how to use this solution. 
 
+## Architecture
 ![Solution Architecture](img/architecture.png)
 
 ```bash
@@ -64,6 +65,20 @@ This command will execute the cloudformation template and create all required re
     **-z OR --hosted-zone-name** :  Name of the hosted zone. If one doesn't exist, it will be created. **(Required)**  
     **-r OR --region** : Region Name. If no region is provided, default region is used. **(Optional)**  
     **-sv OR --skip-vpc** : Skips adding vpcs in the hosted zone, if using an existing hosted zone. **(Optional)**  
+
+## What resources will this solution create?
+
+After deploying this solution, you will see two types of resources:
+
+ 1. **Global resource:**
+ * **Private Hosted Zone (Route 53)**: A private hosted Zone will be created based on the values you passed.
+ * **CNAME**: A CNAME will be created inside the hosted zone based on the parameters you passed.
+
+ 2. **Local resources created per region:**
+* **IAM Role**: An IAM role will be created so the Lambda function can assume this role while executing.
+* **Lambda function**: This is the workhorse of the solution. This lambda will be fired on global database failover completion event, and will update the cname.
+* **DynamoDB table**: A dynamDB table named `gdbcnamepair` will be created. This table keeps track of the clusters that will be managed by this solution.
+* **EventBridge Rule**: This EventBridge Rule will be fired when a global database completes failover in the region. This rule has the Lambda function as it's target.
 
 ## Current Limitations
 
