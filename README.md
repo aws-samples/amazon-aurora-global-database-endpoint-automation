@@ -51,10 +51,10 @@ This command will execute the cloudformation template and create all required re
  3. Once the cloudformation finishes building resources in all regions. Execute the following command:
 
  ```bash
- python3 global_create_hosted_zone.py --cluster-cname-pair='{"<global database clustername>":"<desired writer endpoint >" [,"<global database clustername>":"<desired writer endpoint>"}' --hosted-zone-name=<hosted zone name> --region<aws region name>
+ python3 create_hosted_zone.py --cluster-cname-pair='{"<global database clustername>":"<desired writer endpoint >" [,"<global database clustername>":"<desired writer endpoint>"}' --hosted-zone-name=<hosted zone name> --region<aws region name>
 
  example:
- python3 global_create_hosted_zone.py --cluster-cname-pair='{"gdb-cluster1":"writer1.myhostedzone.com" ,"gdb-cluster2":"writer2.myhostedzone.com"}' --hosted-zone-name=writer2.myhostedzone.com --region us-east-1
+ python3 create_hosted_zone.py --cluster-cname-pair='{"gdb-cluster1":"writer1.myhostedzone.com" ,"gdb-cluster2":"writer2.myhostedzone.com"}' --hosted-zone-name=writer2.myhostedzone.com --region us-east-1
  ```
 
     **What do these parameters mean?**  
