@@ -66,7 +66,7 @@ The script takes following parameters:
 **-r OR --region** : Region Name. If no region is provided, default region is used. **(Optional)**  
 **-sv OR --skip-vpc** : Skips adding vpcs in the hosted zone, if using an existing hosted zone. **(Optional)**  
 
-If you made any mistakes, no worries. You can just re-run it. The script is idempotent. When a new global clusters need to be added, you can just re-run it with the new global-cluster CNAME pair. 
+If you made any mistakes, no worries. You can just re-run it. The script is idempotent. When a you need to add a new global cluster, you can just re-run it with the new global-cluster and CNAME pair. 
 
 ## What resources will this solution create?
 
