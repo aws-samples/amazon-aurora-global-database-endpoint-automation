@@ -36,7 +36,7 @@ Follow the instructions below in order to deploy from this repository:
 You will have to execute the following commands multiple times, passing the region name every time. You will do this for all regions of your global database. For example if your global database is deployed in us-east-1 and us-west-2, then you will have to execute the commands twice with the region parameter as us-east-1 and then again with region parameter as us-west-2. 
 
 
- 2. In the root directory, from the command line, run:
+ 2. In the root directory, from the command line, run following command, for each region of the global database. 
 
  ```bash
  aws cloudformation create-stack --capabilities CAPABILITY_NAMED_IAM --template-body file://managed-gdb-cft.yml --stack-name <stackname> --region <region name>
@@ -48,7 +48,7 @@ You will have to execute the following commands multiple times, passing the regi
 This command will execute the cloudformation template and create all required resources in the region.
 
 
- 3. Once the cloudformation finishes building resources in all regions. Execute the following command:
+ 3. Once the cloudformation finishes building resources in all regions, execute the following command, for each region of the  global database.
 
  ```bash
  python3 create_hosted_zone.py --cluster-cname-pair='{"<global database clustername>":"<desired writer endpoint >" [,"<global database clustername>":"<desired writer endpoint>"}' --hosted-zone-name=<hosted zone name> --region<aws region name>
