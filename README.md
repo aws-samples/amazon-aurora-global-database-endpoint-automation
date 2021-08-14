@@ -8,7 +8,7 @@ This solution includes a cloudformation template and a python script. This docum
 ```bash
 .
 ├── README.MD                   <-- This readme instructions file
-├── managed-gdb-cft.yaml        <-- Cloudformation template
+├── managed-gdb-cft.yml         <-- Cloudformation template
 ├── create_managed_endpoint.py  <-- source code for deploying the solution
 
 ```
