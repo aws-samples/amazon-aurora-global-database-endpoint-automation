@@ -51,7 +51,7 @@ This command will execute the cloudformation template and create all required re
  3. Once the cloudformation finishes building resources in all regions, execute the following command, for each region of the  global database.
 
  ```bash
- python3 create_managed_endpoint.py --cluster-cname-pair='{"<global database clustername>":"<desired writer endpoint >" [,"<global database clustername>":"<desired writer endpoint>"}' --hosted-zone-name=<hosted zone name> --region<aws region name>
+ python3 create_managed_endpoint.py --cluster-cname-pair='{"<global database clustername>":"<desired writer endpoint >"} [,"<global database clustername>":"<desired writer endpoint>"},...]' --hosted-zone-name=<hosted zone name> --region<aws region name>
 
  example:
  python3 create_managed_endpoint.py --cluster-cname-pair='{"gdb-cluster1":"writer1.myhostedzone.com" ,"gdb-cluster2":"writer2.myhostedzone.com"}' --hosted-zone-name=myhostedzone.com --region us-east-1
@@ -63,7 +63,7 @@ The script takes following parameters:
 
 **-c OR --cluster-cname-pair** : Cluster and writer endpoint pair in '{\"cluname\":\"writer\"}' format. **(Required)**  
 **-z OR --hosted-zone-name** :  Name of the hosted zone. If one doesn't exist, it will be created. **(Required)**  
-**-r OR --region** : Region Name. If no region is provided, default region is used. **(Optional)**  
+**-r OR --region** : Region Name. If no region is provided, default region will be used. **(Optional)**  
 **-sv OR --skip-vpc** : Skips adding vpcs in the hosted zone, if using an existing hosted zone. **(Optional)**  
 
 If you made any mistakes, no worries. You can just re-run it. The script is idempotent. And when you are ready to add a new global cluster, you can just re-run it with the new global-cluster and CNAME pair. 
