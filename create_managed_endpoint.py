@@ -6,6 +6,8 @@ import boto3
 from botocore.exceptions import ClientError
 import re
 import sys
+import datetime
+import time
 
 def exists_hz(hzonename):
     # Detects if hosted zone exists. returns True if found, False if not found.
