@@ -11,6 +11,7 @@ import json
 
 
 def buildstack(region):
+# Builds the stack
     try:
         
         client = boto3.client('cloudformation',region_name=region)
@@ -26,7 +27,6 @@ def buildstack(region):
         )
 
         stackuuid = create_stack_response['StackId']
-        # stackuuid = str(uuid.uuid4())
         return stackuuid
     
     except ClientError as e:
@@ -36,7 +36,7 @@ def buildstack(region):
         print("[ERROR]", e)
 
 def checkstackstatus(region):
-    
+# Checks stack building status    
     try:
         
         stack_building = True
@@ -46,12 +46,10 @@ def checkstackstatus(region):
         event_list = client.describe_stack_events(StackName=stackname).get("StackEvents")
         stack_event = event_list[0]
 
-        if (stack_event.get('ResourceType') == 'AWS::CloudFormation::Stack' and
-        stack_event.get('ResourceStatus') == 'CREATE_COMPLETE'):
+        if (stack_event.get('ResourceType') == 'AWS::CloudFormation::Stack' and stack_event.get('ResourceStatus') == 'CREATE_COMPLETE'):
             stack_building = False
             print("Stack construction completed for region...", region)
-        elif (stack_event.get('ResourceType') == 'AWS::CloudFormation::Stack' and
-            stack_event.get('ResourceStatus') == 'ROLLBACK_COMPLETE'):
+        elif (stack_event.get('ResourceType') == 'AWS::CloudFormation::Stack' and stack_event.get('ResourceStatus') == 'ROLLBACK_COMPLETE'):
             stack_building = False
             print("Stack construction failed for region...", region)
             sys.exit(1)
@@ -66,6 +64,25 @@ def checkstackstatus(region):
     except Exception as e:
         print("[ERROR]", e)
 
+def checkstackname(region):
+# Checks if stackname exists. Returns true if it does, false if not.
+    try:
+
+        client = boto3.client('cloudformation',region_name = region)
+        response = client.list_stacks()
+        for stacks in response['StackSummaries']:
+            if (stacks['StackName'] == stackname):
+                return True
+            else:
+                return False
+    
+    except ClientError as e:
+        print("[ERROR]",e)
+        raise
+    except Exception as e:
+        print("[ERROR]", e)
+                
+
 
 def main():
     # Main routine
@@ -77,13 +94,12 @@ def main():
         parser.add_argument("-t","--template-body", default='managed-gdb-cft.yml', type=str, help="CloudFormation template file")
         parser.add_argument("-r","--region", type=str,help="List of regions seperated by commas, where the stack will be deployed")
         parser.add_argument("-s","--stack-name", type=str, help="CloudFormation Stack Name")
-        parser.add_argument("-a","--agree-anonymous-data-collect", type=str, default='yes',help="Opt in for anonymous one time data collection.(yes/no). Only collects region name, creation time and uuid portion of the stack id (for uniqueness).")
-    
+        parser.add_argument("-a","--agree-anonymous-data-collect", type=str, default='yes',help="Opt-in for anonymous one time data collection.(yes/no). Only collects region name, creation time, stack name and uuid portion of the stack id (for uniqueness).")
 
         # process arguments
         args = parser.parse_args()
 
-        #region and stack ids
+        # dictionary for region and stack ids
         stack_regions = {}
 
         global stackname
@@ -114,7 +130,10 @@ def main():
             if not regionmatch:
                 print ("Please provide a valid region name in region list. For example: us-east-1. Incorrect value", region)
                 sys.exit(1)
-            
+            elif checkstackname(region):
+                print ("Stack Name", stackname, "already exists in region", region,". Quitting due to stack name conflict. Please choose another stack name.")
+                sys.exit(1)
+                
 
         # print (sys.platform)
 
@@ -125,11 +144,13 @@ def main():
 
             stackid = buildstack (region)
             stackids = stackid.split('/')
-            stackid = stackids[2]
+            stackid = stackids[2] # split stackid to isolate the uuid portion
             stack_regions[stackid] = region
             regionscount += 1
             buildtime = datetime.datetime.utcnow().isoformat() + 'Z'
             print("Started building stackid",stackid,"in Region",region, "at:",buildtime)
+            
+            # This block gathers anonymous data on the stack, if consent is provided. Only data collected is name of the stack, region, timestamp and only UUID part of the stackid.
             payload = {
                     'stack_uuid': stackid,
                     'stack_name': stackname,
@@ -138,16 +159,16 @@ def main():
                     
                   }
             if (args.agree_anonymous_data_collect == 'yes'):
-                r = http.request('POST', "https://ksacb35t5m.execute-api.us-east-1.amazonaws.com/v1/track", body=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
+                r = http.request('POST', "https://ksacb35t5m.execute-api.us-east-1.amazonaws.com/v1/track", body=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'}) 
                 print("[INFO]", "Event tracking for UUID:", payload["stack_uuid"])
             
             
             
-        try_count = 1 #Initialize counter to keep track of regions
+        try_count = 1 #Initialize counter to keep track of regions in a loop
                     
         while stack_building:
 
-            waitcount = 1 #Initialize counter for waiting 10 se
+            waitcount = 1 #Initialize counter for the sleep loop
             for stack in stack_regions:
                                               
                 stackid = stack
