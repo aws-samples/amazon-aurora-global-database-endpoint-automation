@@ -267,22 +267,6 @@ def main():
         # ingest Hosted Zone name passed as argument
         hostedzonename = args.hosted_zone_name
               
-        # process region name if passed.
-        # If region name argument was not provided, use default region.
-        # If region name was passed then, validate it's in the correct format. If region name is malformed, quit, else proceed.
-        # thisregion = args.region
-
-        # if (thisregion == ''):
-        #     thissession = boto3.session.Session()
-        #     thisregion = thissession.region_name
-        # else:
-        #     regionregex = re.compile(r"^us-[a-z]*-[0-9]{1}")
-        #     regionmatch  = re.search(regionregex, thisregion)
-            
-        #     if not regionmatch:
-        #         print ("Please provide a valid region name. For example: us-east-1")
-        #         sys.exit(1)
-
         # Get the list of regions
         regions = args.region_list.split(',')
                 
@@ -299,9 +283,6 @@ def main():
                 if not regionmatch:
                     print ("Please provide a valid region name in region list. For example: us-east-1. Incorrect value", region)
                     sys.exit(1)
-                
-            
-        
                       
         # If the user didn't pass hosted zone in the expected format, fix it by adding a '.' at the end
         strlen = len(hostedzonename)
@@ -324,8 +305,8 @@ def main():
 
         for region in regions:
 
-            print("Processing region", region)
-            print ("\n")
+            print("\nProcessing region", region, ":")
+            
 
             # Parse values from the cluster-cname-pair argument. Separate clustername and cname entries.
             for val in vals:
