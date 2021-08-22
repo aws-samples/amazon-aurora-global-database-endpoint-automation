@@ -11,7 +11,7 @@ import json
 
 
 def buildstack(region):
-# Builds the stack
+# builds the stack
     try:
         
         client = boto3.client('cloudformation',region_name=region)
@@ -36,7 +36,7 @@ def buildstack(region):
         print("[ERROR]", e)
 
 def checkstackstatus(region):
-# Checks stack building status    
+# checks stack building status    
     try:
         
         stack_building = True
@@ -65,7 +65,7 @@ def checkstackstatus(region):
         print("[ERROR]", e)
 
 def checkstackname(region):
-# Checks if stackname exists. Returns true if it does, false if not.
+# checks if stackname exists. Returns true if it does, false if not.
     try:
 
         client = boto3.client('cloudformation',region_name = region)
@@ -85,16 +85,16 @@ def checkstackname(region):
 
 
 def main():
-    # Main routine
+    # main routine
 
 
     try:
 
         parser = argparse.ArgumentParser()
         parser.add_argument("-t","--template-body", default='managed-gdb-cft.yml', type=str, help="CloudFormation template file")
-        parser.add_argument("-r","--region", type=str,help="List of regions seperated by commas, where the stack will be deployed")
+        parser.add_argument("-r","--region-list", type=str,help="List of regions separated by commas, where the stack will be deployed")
         parser.add_argument("-s","--stack-name", type=str, help="CloudFormation Stack Name")
-        parser.add_argument("-a","--agree-anonymous-data-collect", type=str, default='yes',help="Opt-in for anonymous one time data collection.(yes/no). Only collects region name, creation time, stack name and uuid portion of the stack id (for uniqueness).")
+        parser.add_argument("-a","--consent-anonymous-data-collect", type=str, default='yes',help="Opt-in or out of anonymous one time data collection.(yes/no). Only collects region name, creation time, stack name and uuid portion of the stack id (for uniqueness).")
 
         # process arguments
         args = parser.parse_args()
@@ -118,27 +118,36 @@ def main():
         templateBody = f.read()
 
         # Get the list of regions
-        regions = args.region.split(',')
+        regions = args.region_list.split(',')
         
-
+        
         # validate all passed region names for correctness
-        for region in regions:
-            
-            regionregex = re.compile(r"^us-[a-z]*-[0-9]{1}")
-            regionmatch  = re.search(regionregex, region)
-            
-            if not regionmatch:
-                print ("Please provide a valid region name in region list. For example: us-east-1. Incorrect value", region)
-                sys.exit(1)
-            elif checkstackname(region):
-                print ("Stack Name", stackname, "already exists in region", region,". Quitting due to stack name conflict. Please choose another stack name.")
-                sys.exit(1)
+        if not regions:
+            print ("Please provide list of regions to build the stack.")
+            sys.exit(1)
+        else:
+            for region in regions:
+                
+                regionregex = re.compile(r"^us-[a-z]*-[0-9]{1}")
+                regionmatch  = re.search(regionregex, region)
+                
+                if not regionmatch:
+                    print ("Please provide a valid region name in region list. For example: us-east-1. Incorrect value", region)
+                    sys.exit(1)
+                elif checkstackname(region):
+                    print ("Stack Name", stackname, "already exists in region", region,". Quitting due to stack name conflict. Please choose another stack name.")
+                    sys.exit(1)
+        
                 
 
         # print (sys.platform)
 
         stack_building = True
+
+        # Initialize region count
         regionscount=1
+
+        
         # Build stack for all regions
         for region in regions:
 
@@ -146,7 +155,7 @@ def main():
             stackids = stackid.split('/')
             stackid = stackids[2] # split stackid to isolate the uuid portion
             stack_regions[stackid] = region
-            regionscount += 1
+            regionscount +=1 #count number of regions
             buildtime = datetime.datetime.utcnow().isoformat() + 'Z'
             print("Started building stackid",stackid,"in Region",region, "at:",buildtime)
             
@@ -158,10 +167,8 @@ def main():
                     'event_timestamp': datetime.datetime.utcnow().isoformat() + 'Z'
                     
                   }
-            if (args.agree_anonymous_data_collect == 'yes'):
+            if (args.consent_anonymous_data_collect.upper() == 'YES' or args.consent_anonymous_data_collect.upper() == 'Y'):
                 r = http.request('POST', "https://ksacb35t5m.execute-api.us-east-1.amazonaws.com/v1/track", body=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'}) 
-                print("[INFO]", "Event tracking for UUID:", payload["stack_uuid"])
-            
             
             
         try_count = 1 #Initialize counter to keep track of regions in a loop
