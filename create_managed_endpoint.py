@@ -253,7 +253,7 @@ def main():
         parser=argparse.ArgumentParser()
         parser.add_argument ("-c", "--cluster-cname-pair", type=str, help="Cluster and writer endpoint pair in '{\"cluname\":\"writer\"}' format")
         parser.add_argument ("-z","--hosted-zone-name", type=str, help="Name of the hosted zone. If one doesn't exist, it will be created")
-        parser.add_argument ("-r","--region", type=str, default='', help="Region Name. If no region is provided, default region is used.")
+        parser.add_argument ("-r","--region-list", type=str, default='', help="List of regions separated by commas, where the stack will be deployed")
         parser.add_argument("-sv","--skip-vpc", default=False, action="store_true", help="Skips adding vpcs in the hosted zone, if using an existing hosted zone.")
         
 
@@ -270,24 +270,38 @@ def main():
         # process region name if passed.
         # If region name argument was not provided, use default region.
         # If region name was passed then, validate it's in the correct format. If region name is malformed, quit, else proceed.
-        thisregion = args.region
+        # thisregion = args.region
 
-        if (thisregion == ''):
-            thissession = boto3.session.Session()
-            thisregion = thissession.region_name
+        # if (thisregion == ''):
+        #     thissession = boto3.session.Session()
+        #     thisregion = thissession.region_name
+        # else:
+        #     regionregex = re.compile(r"^us-[a-z]*-[0-9]{1}")
+        #     regionmatch  = re.search(regionregex, thisregion)
+            
+        #     if not regionmatch:
+        #         print ("Please provide a valid region name. For example: us-east-1")
+        #         sys.exit(1)
+
+        # Get the list of regions
+        regions = args.region_list.split(',')
+                
+        # validate all passed region names for correctness
+        if not regions:
+            print ("Please provide list of regions to build the stack.")
+            sys.exit(1)
         else:
-            regionregex = re.compile(r"^us-[a-z]*-[0-9]{1}")
-            regionmatch  = re.search(regionregex, thisregion)
+            for region in regions:
+                
+                regionregex = re.compile(r"^us-[a-z]*-[0-9]{1}")
+                regionmatch  = re.search(regionregex, region)
+                                
+                if not regionmatch:
+                    print ("Please provide a valid region name in region list. For example: us-east-1. Incorrect value", region)
+                    sys.exit(1)
+                
             
-            if not regionmatch:
-                print ("Please provide a valid region name. For example: us-east-1")
-                sys.exit(1)
-            
-        # define boto client globally, since they get used in functions.
-        global gdbclient  
-        gdbclient =boto3.client("rds",region_name = thisregion) 
-        global dnsclient 
-        dnsclient = boto3.client("route53", region_name = thisregion)
+        
                       
         # If the user didn't pass hosted zone in the expected format, fix it by adding a '.' at the end
         strlen = len(hostedzonename)
@@ -308,117 +322,129 @@ def main():
 
 
 
-        # Parse values from the cluster-cname-pair argument. Separate clustername and cname entries.
-        for val in vals:
-            gdbcluname = val
-            recordname = vals[val]
+        for region in regions:
 
-            response=gdbclient.describe_global_clusters(GlobalClusterIdentifier = gdbcluname)
+            print("Processing region", region)
+            print ("\n")
 
-            # Loop thorugh each regional cluster member for the provided global cluster
-            for i in response['GlobalClusters'][0]['GlobalClusterMembers']:
-                resourcename = i['DBClusterArn']  #This is the ARN
-                resourcename = resourcename.split(':') #Arn splits values with semicolon
-                regioname = resourcename[3] #region name is in the 3rd postion
-                cluname = resourcename[6] #clustername is in the 6th position
+            # Parse values from the cluster-cname-pair argument. Separate clustername and cname entries.
+            for val in vals:
+                gdbcluname = val
+                recordname = vals[val]
 
-                print ("\n")
-                print("Processing regional cluster", cluname, ":")
-                
+                global gdbclient  
+                gdbclient =boto3.client("rds",region_name = region)
+                response=gdbclient.describe_global_clusters(GlobalClusterIdentifier = gdbcluname)
 
-                # For each writer cluster in the region do following:
-                    # 1> If the hosted zone doesn't exists, create it and add the vpc and cname. Make a dynamodb table entry.
-                    # 2> If Hosted zone exists, check if current writers vpc is in the hosted zone, if not add it. Then check if the writer cname for the current cluster exists, if not add it. Make a dynamodb table entry.
-                    # 3> If hosted zone exists and already has the vpc entry, then add the cname and writer to it. Make a dynamodb table entry.
+                # define boto client globally, since they get used in functions.
+         
+                global dnsclient 
+                dnsclient = boto3.client("route53", region_name = region)
 
-                if  (i['IsWriter'] and regioname == thisregion): #Only make entries for current region writer cluster
+                # Loop thorugh each regional cluster member for the provided global cluster
+                for i in response['GlobalClusters'][0]['GlobalClusterMembers']:
+                    resourcename = i['DBClusterArn']  #This is the ARN
+                    resourcename = resourcename.split(':') #Arn splits values with semicolon
+                    regioname = resourcename[3] #region name is in the 3rd postion
+                    cluname = resourcename[6] #clustername is in the 6th position
+
                     
-                    # get the instance name. We need instance name to get the vpc id
-                    response1=gdbclient.describe_db_clusters(DBClusterIdentifier = cluname)
-                    instancename= (response1['DBClusters'][0]['DBClusterMembers'][0]['DBInstanceIdentifier'])
+                    print("Processing regional cluster", cluname, ":")
+                                        
 
-                    #get vpc name for the instance. We will use this to create\update the private zone
-                    response2 = gdbclient.describe_db_instances(DBInstanceIdentifier=instancename)
-                    instancevpc = response2['DBInstances'][0]['DBSubnetGroup']['VpcId']
-
-                    # 1> If hosted zone exists 1\check if vpc for current cluster exists, if not, add it 2\next check if writer endpoint exists, if not, add it.
-                    if (exists_hz(hostedzonename)):
-                        print ("Hosted Zone ", hostedzonename, "already exists. Checking vpcs..")
-                        if (exists_hz_vpc(hostedzonename,regioname,instancevpc)):
-                            print ("VPC",instancevpc,"Already exists. checking if CNAME exists..")
-                            if (exists_hz_record(hostedzonename,recordname)):
-                                print ("CNAME",recordname,"Already exists.")
-                            else:
-                                
-                                recordvalue = get_writer_endpoint(cluname) # Get writer endpoint for the cluster
-                                print ("CNAME",recordname,"doesn't exist. Adding CNAME record..")
-                                create_hosted_zone_record(hostedzonename,recordname,recordvalue) # create a cname record in the hosted zone for the writer endpoint
-                                hzid = hosted_zone_id(hostedzonename) #get hosted zone id
-                                make_ddb_entry(cluname,hzid,recordname,regioname) # Add dynamodb entry
-                        else:
-                            if (skipvpc == False):
-                                print ("Vpc",instancevpc," doesn't exist. Adding vpc..")
-                                hzid = update_hosted_zone(hostedzonename,regioname,instancevpc)
-                                make_ddb_entry(cluname,hzid,recordname,regioname) #Make ddb entry. This should only work from the calling region.
-                            else:
-                                print ("Vpc",instancevpc," doesn't exist. But skipping due to skip vpc flag.") 
-                            if (exists_hz_record(hostedzonename,recordname)):
-                                print ("CNAME",recordname,"Already exists.")
-                            else:
-                                
-                                recordvalue = get_writer_endpoint(cluname) # Get writer endpoint for the cluster
-                                print ("CNAME",recordname,"doesn't exist. Adding CNAME record for Primary region cluster", cluname)
-                                create_hosted_zone_record(hostedzonename,recordname,recordvalue) # create a cname record in the hosted zone for the writer endpoint
-                                hzid = hosted_zone_id(hostedzonename) #get hosted zone id
-                                make_ddb_entry(cluname,hzid,recordname,regioname) # Add dynamodb entry
-                    else:
-                        print ("Hosted Zone doesn't exists. Creating ",hostedzonename)
-                        hzid = create_hosted_zone(hostedzonename,regioname,instancevpc)
-                        
-                        make_ddb_entry(cluname,hzid,recordname,regioname) #Make ddb entry. This should only work from the calling region.
-
-                        recordvalue = get_writer_endpoint(cluname) # Get writer endpoint for the cluster
-                        print ("Adding CNAME record ", recordname,"for for Primary region cluster ",cluname)
-                        create_hosted_zone_record(hostedzonename,recordname,recordvalue) # create a cname record in the hosted zone for the writer endpoint
-
-                    # For each reader cluster in the region do following:
+                    # For each writer cluster in the region do following:
                         # 1> If the hosted zone doesn't exists, create it and add the vpc and cname. Make a dynamodb table entry.
-                        # 2> If Hosted zone exists, check if current reader vpc is in the hosted zone, if not add it. Make a dynamodb table entry.
-                        # 3> If neither condition is true just make  a dynamodb table entry.
+                        # 2> If Hosted zone exists, check if current writers vpc is in the hosted zone, if not add it. Then check if the writer cname for the current cluster exists, if not add it. Make a dynamodb table entry.
+                        # 3> If hosted zone exists and already has the vpc entry, then add the cname and writer to it. Make a dynamodb table entry.
 
-        
-                elif  (i['IsWriter'] == False and regioname == thisregion): #Only make entries for current region reader cluster
-                    
-                    # get the instance name. We need instance name to get the vpc id
-                    response1=gdbclient.describe_db_clusters(DBClusterIdentifier = cluname)
-                    instancename= (response1['DBClusters'][0]['DBClusterMembers'][0]['DBInstanceIdentifier'])
+                    if  (i['IsWriter'] and regioname == region): #Only make entries for current region writer cluster
+                        
+                        # get the instance name. We need instance name to get the vpc id
+                        response1=gdbclient.describe_db_clusters(DBClusterIdentifier = cluname)
+                        instancename= (response1['DBClusters'][0]['DBClusterMembers'][0]['DBInstanceIdentifier'])
 
-                    #get vpc name for the instance. We will use this to create\update the private zone
-                    response2 = gdbclient.describe_db_instances(DBInstanceIdentifier=instancename)
-                    instancevpc = response2['DBInstances'][0]['DBSubnetGroup']['VpcId']
+                        #get vpc name for the instance. We will use this to create\update the private zone
+                        response2 = gdbclient.describe_db_instances(DBInstanceIdentifier=instancename)
+                        instancevpc = response2['DBInstances'][0]['DBSubnetGroup']['VpcId']
 
-                    if (exists_hz(hostedzonename)):
-                        print ("Hosted Zone ", hostedzonename, "already exists. Checking vpcs..")
-                        if (exists_hz_vpc(hostedzonename,regioname,instancevpc)):
-                            print ("VPC ",instancevpc,"Already exists for secondary region cluster ", cluname)
-                            
-                            hzid = hosted_zone_id(hostedzonename) #get hosted zone id
-                            make_ddb_entry(cluname,hzid,recordname,regioname) # Add dynamodb entry
-                                
-                        else:
-                            if (skipvpc == False):
-                                print ("VPC",instancevpc," doesn't exist in the hosted zone. Adding vpc..")
-                                hzid = update_hosted_zone(hostedzonename,regioname,instancevpc)
-                                make_ddb_entry(cluname,hzid,recordname,regioname) #Make ddb entry. This should only work from the calling region.
+                        # 1> If hosted zone exists 1\check if vpc for current cluster exists, if not, add it 2\next check if writer endpoint exists, if not, add it.
+                        if (exists_hz(hostedzonename)):
+                            print ("Hosted Zone ", hostedzonename, "already exists. Checking vpcs..")
+                            if (exists_hz_vpc(hostedzonename,regioname,instancevpc)):
+                                print ("VPC",instancevpc,"Already exists. checking if CNAME exists..")
+                                if (exists_hz_record(hostedzonename,recordname)):
+                                    print ("CNAME",recordname,"Already exists.")
+                                else:
+                                    
+                                    recordvalue = get_writer_endpoint(cluname) # Get writer endpoint for the cluster
+                                    print ("CNAME",recordname,"doesn't exist. Adding CNAME record..")
+                                    create_hosted_zone_record(hostedzonename,recordname,recordvalue) # create a cname record in the hosted zone for the writer endpoint
+                                    hzid = hosted_zone_id(hostedzonename) #get hosted zone id
+                                    make_ddb_entry(cluname,hzid,recordname,regioname) # Add dynamodb entry
                             else:
-                                print ("Vpc",instancevpc," doesn't exist. But skipping due to skip vpc flag.") 
+                                if (skipvpc == False):
+                                    print ("Vpc",instancevpc," doesn't exist. Adding vpc..")
+                                    hzid = update_hosted_zone(hostedzonename,regioname,instancevpc)
+                                    make_ddb_entry(cluname,hzid,recordname,regioname) #Make ddb entry. This should only work from the calling region.
+                                else:
+                                    print ("Vpc",instancevpc," doesn't exist. But skipping due to skip vpc flag.") 
+                                if (exists_hz_record(hostedzonename,recordname)):
+                                    print ("CNAME",recordname,"Already exists.")
+                                else:
+                                    
+                                    recordvalue = get_writer_endpoint(cluname) # Get writer endpoint for the cluster
+                                    print ("CNAME",recordname,"doesn't exist. Adding CNAME record for Primary region cluster", cluname)
+                                    create_hosted_zone_record(hostedzonename,recordname,recordvalue) # create a cname record in the hosted zone for the writer endpoint
+                                    hzid = hosted_zone_id(hostedzonename) #get hosted zone id
+                                    make_ddb_entry(cluname,hzid,recordname,regioname) # Add dynamodb entry
+                        else:
+                            print ("Hosted Zone doesn't exists. Creating ",hostedzonename)
+                            hzid = create_hosted_zone(hostedzonename,regioname,instancevpc)
+                            
+                            make_ddb_entry(cluname,hzid,recordname,regioname) #Make ddb entry. This should only work from the calling region.
 
+                            recordvalue = get_writer_endpoint(cluname) # Get writer endpoint for the cluster
+                            print ("Adding CNAME record ", recordname,"for for Primary region cluster ",cluname)
+                            create_hosted_zone_record(hostedzonename,recordname,recordvalue) # create a cname record in the hosted zone for the writer endpoint
+
+                        # For each reader cluster in the region do following:
+                            # 1> If the hosted zone doesn't exists, create it and add the vpc and cname. Make a dynamodb table entry.
+                            # 2> If Hosted zone exists, check if current reader vpc is in the hosted zone, if not add it. Make a dynamodb table entry.
+                            # 3> If neither condition is true just make  a dynamodb table entry.
+
+            
+                    elif  (i['IsWriter'] == False and regioname == region): #Only make entries for current region reader cluster
+                        
+                        # get the instance name. We need instance name to get the vpc id
+                        response1=gdbclient.describe_db_clusters(DBClusterIdentifier = cluname)
+                        instancename= (response1['DBClusters'][0]['DBClusterMembers'][0]['DBInstanceIdentifier'])
+
+                        #get vpc name for the instance. We will use this to create\update the private zone
+                        response2 = gdbclient.describe_db_instances(DBInstanceIdentifier=instancename)
+                        instancevpc = response2['DBInstances'][0]['DBSubnetGroup']['VpcId']
+
+                        if (exists_hz(hostedzonename)):
+                            print ("Hosted Zone ", hostedzonename, "already exists. Checking vpcs..")
+                            if (exists_hz_vpc(hostedzonename,regioname,instancevpc)):
+                                print ("VPC ",instancevpc,"Already exists for secondary region cluster ", cluname)
+                                
+                                hzid = hosted_zone_id(hostedzonename) #get hosted zone id
+                                make_ddb_entry(cluname,hzid,recordname,regioname) # Add dynamodb entry
+                                    
+                            else:
+                                if (skipvpc == False):
+                                    print ("VPC",instancevpc," doesn't exist in the hosted zone. Adding vpc..")
+                                    hzid = update_hosted_zone(hostedzonename,regioname,instancevpc)
+                                    make_ddb_entry(cluname,hzid,recordname,regioname) #Make ddb entry. This should only work from the calling region.
+                                else:
+                                    print ("Vpc",instancevpc," doesn't exist. But skipping due to skip vpc flag.") 
+
+                        else:
+                            print ("Hosted Zone doesn't exists. Creating ",hostedzonename)
+                            hzid = create_hosted_zone(hostedzonename,regioname,instancevpc)
+                            make_ddb_entry(cluname,hzid,recordname,regioname) #Make ddb entry. This should only work from the calling region.
                     else:
-                        print ("Hosted Zone doesn't exists. Creating ",hostedzonename)
-                        hzid = create_hosted_zone(hostedzonename,regioname,instancevpc)
-                        make_ddb_entry(cluname,hzid,recordname,regioname) #Make ddb entry. This should only work from the calling region.
-                else:
-                    print ("No entries made for this cluster. Cluster is not in the current region.")
+                        print ("No entries made for this cluster. Cluster is not in the current region.")
     
     except ClientError as e:
         print(e)

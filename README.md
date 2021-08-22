@@ -32,38 +32,46 @@ Follow the instructions below in order to deploy from this repository:
  ```
 
 
->**_NOTE:_**
-You will have to execute the following commands multiple times, passing the region name every time. You will do this for all regions of your global database. For example if your global database is deployed in us-east-1 and us-west-2, then you will have to execute the commands twice with the region parameter as us-east-1 and then again with region parameter as us-west-2. 
-
-
- 2. In the root directory, from the command line, run following command, for each region of the global database. 
+2. In the root directory, from the command line, run following command. Please make sure you pass **all regions** where your global database clusters are deployed. 
+   This command will execute the cloudformation template and create all required resources in all passed regions.
 
  ```bash
- aws cloudformation create-stack --capabilities CAPABILITY_NAMED_IAM --template-body file://managed-gdb-cft.yml --stack-name <stackname> --region <region name>
-
- example:
- aws cloudformation create-stack --capabilities CAPABILITY_NAMED_IAM --template-body file://managed-gdb-cft.yml --stack-name managed-gdb --region us-east-1
+ usage:
+ python3 buildstack.py [--template-body <'managed-gdb-cft.yml'>] <--stack-name 'stackname'>  [--consent-anonymous-data-collect <'yes/no'>] <--region-list 'regionlist'>
  
+ example:
+ python3 buildstack.py --template-body 'managed-gdb-cft.yml' --stack-name 'gdb-managed-ep'  --consent-anonymous-data-collect 'yes' --region-list 'us-east-1,us-west-1'
  ```
-This command will execute the cloudformation template and create all required resources in the region.
+
+**What do these parameters mean?**  
+
+The script takes following parameters:  
+
+**-t OR --template-body**: CloudFormation template file. Defaults to managed0gdb-cft.yml.  **(Optional)**  
+**-r OR --region-list**: List of regions separated by commas, where the stack will be deployed. **(Required)**   
+**-a OR --consent-anonymous-data-collect**: Opt-in or out of anonymous one time data collection.(yes/no). Only collects region name, creation time, stack name and uuid portion of the stack id (for uniqueness). Defaults to accept. **(Optional)**  
+**-s OR --stack-name**: CloudFormation Stack Name.  **(Required)** 
+
+>**_NOTE:_**
+You will have to execute the following command multiple times, passing the region name every time. You will do this for all regions of your global database. For example if your global database is deployed in us-east-1 and us-west-2, then you will have to execute the commands twice with the region parameter as us-east-1 and then again with region parameter as us-west-2. 
 
 
  3. Once the cloudformation finishes building resources in all regions, execute the following command, for each region of the  global database.
 
  ```bash
- python3 create_managed_endpoint.py --cluster-cname-pair='{"<global database clustername>":"<desired writer endpoint >"} [,"<global database clustername>":"<desired writer endpoint>"},...]' --hosted-zone-name=<hosted zone name> --region<aws region name>
+ python3 create_managed_endpoint.py --cluster-cname-pair='{"<global database clustername>":"<desired writer endpoint >"} [,"<global database clustername>":"<desired writer endpoint>"},...]' --hosted-zone-name=<hosted zone name> --region-list <'regionlist'>
 
  example:
- python3 create_managed_endpoint.py --cluster-cname-pair='{"gdb-cluster1":"writer1.myhostedzone.com" ,"gdb-cluster2":"writer2.myhostedzone.com"}' --hosted-zone-name=myhostedzone.com --region us-east-1
+ python3 create_managed_endpoint.py --cluster-cname-pair='{"gdb-cluster1":"writer1.myhostedzone.com" ,"gdb-cluster2":"writer2.myhostedzone.com"}' --hosted-zone-name=myhostedzone.com --region-list 'us-east-1,us-west-1'
  ```
 
 **What do these parameters mean?**  
-    
+
 The script takes following parameters:  
 
 **-c OR --cluster-cname-pair** : Cluster and writer endpoint pair in '{\"cluname\":\"writer\"}' format. **(Required)**  
 **-z OR --hosted-zone-name** :  Name of the hosted zone. If one doesn't exist, it will be created. **(Required)**  
-**-r OR --region** : Region Name. If no region is provided, default region will be used. **(Optional)**  
+**-r OR --region-list** : List of regions separated by commas, where the stack will be deployed. **(Required)**  
 **-sv OR --skip-vpc** : Skips adding vpcs in the hosted zone, if using an existing hosted zone. **(Optional)**  
 
 If you made any mistakes, no worries. You can just re-run it. The script is idempotent. And when you are ready to add a new global cluster, you can just re-run it with the new global-cluster and CNAME pair. 
