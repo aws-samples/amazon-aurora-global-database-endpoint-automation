@@ -43,7 +43,8 @@ Follow the instructions below in order to deploy from this repository:
  python3 buildstack.py --template-body 'managed-gdb-cft.yml' --stack-name 'gdb-managed-ep'  --consent-anonymous-data-collect 'yes' --region-list 'us-east-1,us-west-1'
  ```
 
-**What do these parameters mean?**  
+<details>
+  <summary> <strong> What do these parameters mean? </strong>  </summary>  
 
 The script takes following parameters:  
 
@@ -51,10 +52,7 @@ The script takes following parameters:
 **-r OR --region-list**: List of regions separated by commas, where the stack will be deployed. **(Required)**   
 **-a OR --consent-anonymous-data-collect**: Opt-in or out of anonymous one time data collection.(yes/no). Only collects region name, creation time, stack name and uuid portion of the stack id (for uniqueness). Defaults to accept. **(Optional)**  
 **-s OR --stack-name**: CloudFormation Stack Name.  **(Required)** 
-
->**_NOTE:_**
-You will have to execute the following command multiple times, passing the region name every time. You will do this for all regions of your global database. For example if your global database is deployed in us-east-1 and us-west-2, then you will have to execute the commands twice with the region parameter as us-east-1 and then again with region parameter as us-west-2. 
-
+</details>
 
  3. Once the cloudformation finishes building resources in all regions, execute the following command, for each region of the  global database.
 
@@ -65,7 +63,8 @@ You will have to execute the following command multiple times, passing the regio
  python3 create_managed_endpoint.py --cluster-cname-pair='{"gdb-cluster1":"writer1.myhostedzone.com" ,"gdb-cluster2":"writer2.myhostedzone.com"}' --hosted-zone-name=myhostedzone.com --region-list 'us-east-1,us-west-1'
  ```
 
-**What do these parameters mean?**  
+<details>
+  <summary> <strong> What do these parameters mean? </strong>  </summary>  
 
 The script takes following parameters:  
 
@@ -74,6 +73,7 @@ The script takes following parameters:
 **-r OR --region-list** : List of regions separated by commas, where the stack will be deployed. **(Required)**  
 **-sv OR --skip-vpc** : Skips adding vpcs in the hosted zone, if using an existing hosted zone. **(Optional)**  
 
+</details>
 If you made any mistakes, no worries. You can just re-run it. The script is idempotent. And when you are ready to add a new global cluster, you can just re-run it with the new global-cluster and CNAME pair. 
 
 ## What resources will this solution create?
