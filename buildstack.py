@@ -69,7 +69,7 @@ def checkstackname(region):
     try:
 
         client = boto3.client('cloudformation',region_name = region)
-        client.list_stacks(StackStatusFilter=['CREATE_COMPLETE'])
+        response = client.list_stacks(StackStatusFilter=['CREATE_COMPLETE'])
         for stacks in response['StackSummaries']:
             if (stacks['StackName'] == stackname):
                 return True
