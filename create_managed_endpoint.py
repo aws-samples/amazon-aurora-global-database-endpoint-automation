@@ -1,4 +1,5 @@
 import json
+from logging import FATAL
 import string
 import uuid
 import argparse 
@@ -243,7 +244,24 @@ def get_writer_endpoint(cluname):
         print(e)
         raise
 
+def validateregion(region):
+# validates passed region name.
+    try:
+
+        regionfound = False
+
+        for i in regionslist['Regions']:
+            if (i['RegionName'] == region):
+                regionfound = True
+                break
+            
+        return regionfound
     
+    except ClientError as e:
+        print("[ERROR]",e)
+        raise
+    except Exception as e:
+        print("[ERROR]", e)
 
 def main():
     # Main routine
@@ -269,20 +287,32 @@ def main():
               
         # Get the list of regions
         regions = args.region_list.split(',')
-                
+
+        # Get all possible regions
+        global regionslist
+        ec2client = boto3.client('ec2','us-east-1')
+        regionslist = ec2client.describe_regions()
+
+
         # validate all passed region names for correctness
         if not regions:
             print ("Please provide list of regions to build the stack.")
             sys.exit(1)
         else:
             for region in regions:
-                
-                regionregex = re.compile(r"^us-[a-z]*-[0-9]{1}")
-                regionmatch  = re.search(regionregex, region)
-                                
-                if not regionmatch:
-                    print ("Please provide a valid region name in region list. For example: us-east-1. Incorrect value", region)
+                if not validateregion(region):
+                    print ("Please provide a valid region name in region list. For example: us-east-1. Incorrect region name", region, "was provided.")
                     sys.exit(1)
+                    
+
+            
+            # for region in regions:
+                
+            #     regionregex = re.compile(r"^us-[a-z]*-[0-9]{1}")
+            #     regionmatch  = re.search(regionregex, region)
+                                
+            #     if not regionmatch:
+                    
                       
         # If the user didn't pass hosted zone in the expected format, fix it by adding a '.' at the end
         strlen = len(hostedzonename)

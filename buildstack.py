@@ -81,7 +81,25 @@ def checkstackname(region):
         raise
     except Exception as e:
         print("[ERROR]", e)
-                
+
+def validateregion(region):
+# validates passed region name.
+    try:
+
+        regionfound = False
+
+        for i in regionslist['Regions']:
+            if (i['RegionName'] == region):
+                regionfound = True
+                break
+            
+        return regionfound
+    
+    except ClientError as e:
+        print("[ERROR]",e)
+        raise
+    except Exception as e:
+        print("[ERROR]", e)                
 
 
 def main():
@@ -120,6 +138,10 @@ def main():
         # Get the list of regions
         regions = args.region_list.split(',')
         
+        # Get all possible regions
+        global regionslist
+        ec2client = boto3.client('ec2','us-east-1')
+        regionslist = ec2client.describe_regions()
         
         # validate all passed region names for correctness
         if not regions:
@@ -128,11 +150,10 @@ def main():
         else:
             for region in regions:
                 
-                regionregex = re.compile(r"^us-[a-z]*-[0-9]{1}")
-                regionmatch  = re.search(regionregex, region)
-                
-                if not regionmatch:
-                    print ("Please provide a valid region name in region list. For example: us-east-1. Incorrect value", region)
+                # regionregex = re.compile(r"^us-[a-z]*-[0-9]{1}")
+                # regionmatch  = re.search(regionregex, region)
+                if not validateregion(region):
+                    print ("Please provide a valid region name in region list. For example: us-east-1. Incorrect region name", region, "was provided.")
                     sys.exit(1)
                 elif checkstackname(region):
                     print ("Stack Name", stackname, "already exists in region", region,". Quitting due to stack name conflict. Please choose another stack name.")
