@@ -55,7 +55,7 @@ The script takes following parameters:
 **-s OR --stack-name**: CloudFormation Stack Name.  **(Required)** 
 </details>
 
- 3. Once the cloudformation finishes building resources in all regions, execute the following command, for each region of the  global database.
+ 3. Once the cloudformation finishes building resources in all regions, execute the following command, passing **all regions** of the  global databases you wish to manage.
 
  ```bash
  python3 create_managed_endpoint.py --cluster-cname-pair='{"<global database clustername>":"<desired writer endpoint >"} [,"<global database clustername>":"<desired writer endpoint>"},...]' --hosted-zone-name=<hosted zone name> --region-list <'regionlist'>
