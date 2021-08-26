@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Create supporting resources for automated global database endpoint management.
+Description: Creates supporting resources for automated global database endpoint management solution.
 
 Resources:
   
@@ -159,9 +159,7 @@ Resources:
       Targets: 
         - Arn: !GetAtt gdbmanagedeplambda.Arn
           Id: "gdblambdatarget"
-      # Tags:
-      #     - Key: Name
-      #       Value: gdb-managed-endpoint-event-rule
+
   
   #Add  the lambda permission so it can be invoked by the rule
   gdbmanagedeplambdapermission:
@@ -175,7 +173,7 @@ Resources:
 
   #Create the role needed for the lambda function.
   gdbmanagedeprole:
-    Type: AWS::IAM::Role
+    Type: 'AWS::IAM::Role'
     Properties:
       RoleName:
         Fn::Join:
@@ -190,21 +188,52 @@ Resources:
                         - Fn::Split:
                             - /
                             - Ref: AWS::StackId
-      Description: Role to permit the Lambda  function to interact with relevant AWS APIs.
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
           - Effect: Allow
-            Action:
-              - sts:AssumeRole
             Principal:
-              Service:
-                - lambda.amazonaws.com
-      ManagedPolicyArns: 
-        - arn:aws:iam::aws:policy/AmazonRDSFullAccess
-        - arn:aws:iam::aws:policy/CloudWatchFullAccess
-        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
-        - arn:aws:iam::aws:policy/AmazonRoute53FullAccess
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub "${AWS::StackName}-lambda-cw-policy"
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+            - Effect: Allow
+              Action: 
+              - 'logs:CreateLogGroup'
+              - 'logs:CreateLogStream'
+              - 'logs:PutLogEvents'
+              Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+        - PolicyName: !Sub "${AWS::StackName}-lambda-rds-policy"
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+            - Effect: Allow
+              Action:
+              - rds:DescribeGlobalClusters
+              - rds:DescribeDBInstances
+              - rds:DescribeDBClusters
+              - rds:DescribeDBClusterEndpoints
+              Resource: 
+              - !Sub "arn:aws:rds:*:${AWS::AccountId}:cluster:*"
+              - !Sub "arn:aws:rds::${AWS::AccountId}:global-cluster:*"
+              - !Sub "arn:aws:rds:*:${AWS::AccountId}:db:*"
+        - PolicyName: !Sub "${AWS::StackName}-lambda-r53-policy"
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              Effect: Allow
+              Action: route53:ChangeResourceRecordSets
+              Resource: "*"
+        - PolicyName: !Sub "${AWS::StackName}-lambda-ddb-policy"
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              Effect: Allow
+              Action: dynamodb:GetItem
+              Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${gdbmanagedepddbtbl}"
       Tags:
         - Key: Name
           Value: gdb-managed-endpoint-lambda-role
