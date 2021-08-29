@@ -93,6 +93,14 @@ After deploying this solution, you will see two types of resources:
 * **DynamoDB table**: A dynamDB table named `gdbcnamepair` will be created. This table keeps track of the clusters that will be managed by this solution.
 * **EventBridge Rule**: This EventBridge Rule will be fired when a global database completes failover in the region. This rule has the Lambda function as it's target.
 
+## Cleanup 
+
+To remove this solution from your account, do following:  
+
+1. Delete the cloudformation stack from all regions.
+2. Delete the CNAME record entries from the private hosted zone.
+3. Delete the private hosted zone.
+
 ## Current Limitations
 
 * **Partial SSL Support** - Since the solution uses a Route 53 CNAME, the SSL certificate will not be able to validate the aurora servername. For example pgsql client [verify-full](https://www.postgresql.org/docs/9.1/libpq-ssl.html) or mysql client [ssl-verify-server-cert](https://dev.mysql.com/doc/refman/5.7/en/connection-options.html#option_general_ssl-verify-server-cert) will fail to validate server identity.
