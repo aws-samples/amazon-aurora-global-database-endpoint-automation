@@ -3,6 +3,8 @@ Description: Creates supporting resources for automated global database endpoint
 
 ## Changelog:
 # 8/29/2021 : ausamant - added managed policies for the lambda role instead of inline policies
+#                      - added stackid as a uniquifier for managed policy names
+##
 
 Resources:
   
@@ -177,11 +179,6 @@ Resources:
   #Create the role needed for the lambda function.
   gdbmanagedeprole:
     Type: 'AWS::IAM::Role'
-    # DependsOn:
-    # - gdbmanagedelambdacwpolicy
-    # - gdbmanagedelambdrdspolicy
-    # - gdbmanagedelambdar53policy
-    # - gdbmanagedelambdaddbpolicy
     Properties:
       RoleName:
         Fn::Join:
