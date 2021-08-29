@@ -1,6 +1,9 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: Creates supporting resources for automated global database endpoint management solution.
 
+## Changelog:
+# 8/29/2021 : ausamant - added managed policies for the lambda role instead of inline policies
+
 Resources:
   
   #Create the DynamoDB table and attributes to hold global cluster and cname information
@@ -174,6 +177,11 @@ Resources:
   #Create the role needed for the lambda function.
   gdbmanagedeprole:
     Type: 'AWS::IAM::Role'
+    # DependsOn:
+    # - gdbmanagedelambdacwpolicy
+    # - gdbmanagedelambdrdspolicy
+    # - gdbmanagedelambdar53policy
+    # - gdbmanagedelambdaddbpolicy
     Properties:
       RoleName:
         Fn::Join:
@@ -195,46 +203,123 @@ Resources:
             Principal:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
-      Policies:
-        - PolicyName: !Sub "${AWS::StackName}-lambda-cw-policy"
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-            - Effect: Allow
-              Action: 
-              - 'logs:CreateLogGroup'
-              - 'logs:CreateLogStream'
-              - 'logs:PutLogEvents'
-              Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
-        - PolicyName: !Sub "${AWS::StackName}-lambda-rds-policy"
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-            - Effect: Allow
-              Action:
-              - rds:DescribeGlobalClusters
-              - rds:DescribeDBInstances
-              - rds:DescribeDBClusters
-              - rds:DescribeDBClusterEndpoints
-              Resource: 
-              - !Sub "arn:aws:rds:*:${AWS::AccountId}:cluster:*"
-              - !Sub "arn:aws:rds::${AWS::AccountId}:global-cluster:*"
-              - !Sub "arn:aws:rds:*:${AWS::AccountId}:db:*"
-        - PolicyName: !Sub "${AWS::StackName}-lambda-r53-policy"
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              Effect: Allow
-              Action: route53:ChangeResourceRecordSets
-              Resource: "*"
-        - PolicyName: !Sub "${AWS::StackName}-lambda-ddb-policy"
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              Effect: Allow
-              Action: dynamodb:GetItem
-              Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${gdbmanagedepddbtbl}"
       Tags:
         - Key: Name
           Value: gdb-managed-endpoint-lambda-role
   
+  gdbmanagedelambdacwpolicy:
+    Type: AWS::IAM::ManagedPolicy
+    DependsOn: gdbmanagedeprole
+    Properties: 
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action: 
+          - 'logs:CreateLogGroup'
+          - 'logs:CreateLogStream'
+          - 'logs:PutLogEvents'
+          Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+      ManagedPolicyName: 
+        Fn::Join:
+          - '-'
+          - - lambda-cw-policy
+            - Fn::Select:
+                - 4
+                - Fn::Split:
+                    - '-'
+                    - Fn::Select:
+                        - 2
+                        - Fn::Split:
+                            - /
+                            - Ref: AWS::StackId
+      Roles:
+        - !Ref gdbmanagedeprole
+
+  
+  gdbmanagedelambdrdspolicy:
+    Type: AWS::IAM::ManagedPolicy
+    DependsOn: gdbmanagedeprole
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action:
+          - rds:DescribeGlobalClusters
+          - rds:DescribeDBInstances
+          - rds:DescribeDBClusters
+          - rds:DescribeDBClusterEndpoints
+          Resource: 
+          - !Sub "arn:aws:rds:*:${AWS::AccountId}:cluster:*"
+          - !Sub "arn:aws:rds::${AWS::AccountId}:global-cluster:*"
+          - !Sub "arn:aws:rds:*:${AWS::AccountId}:db:*"
+      ManagedPolicyName: 
+        Fn::Join:
+          - '-'
+          - - lambda-rds-policy
+            - Fn::Select:
+                - 4
+                - Fn::Split:
+                    - '-'
+                    - Fn::Select:
+                        - 2
+                        - Fn::Split:
+                            - /
+                            - Ref: AWS::StackId
+      Roles:
+          - !Ref gdbmanagedeprole
+
+  
+  gdbmanagedelambdar53policy:
+    Type: AWS::IAM::ManagedPolicy
+    DependsOn: gdbmanagedeprole
+    Properties: 
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Action: route53:ChangeResourceRecordSets
+          Resource: "*"
+      ManagedPolicyName: 
+        Fn::Join:
+          - '-'
+          - - lambda-r53-policy
+            - Fn::Select:
+                - 4
+                - Fn::Split:
+                    - '-'
+                    - Fn::Select:
+                        - 2
+                        - Fn::Split:
+                            - /
+                            - Ref: AWS::StackId
+      Roles:
+        - !Ref gdbmanagedeprole
+
+    
+  gdbmanagedelambdaddbpolicy:  
+    Type: AWS::IAM::ManagedPolicy
+    DependsOn: gdbmanagedeprole
+    Properties: 
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Action: dynamodb:GetItem
+          Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${gdbmanagedepddbtbl}"
+      ManagedPolicyName: 
+        Fn::Join:
+          - '-'
+          - - lambda-ddb-policy
+            - Fn::Select:
+                - 4
+                - Fn::Split:
+                    - '-'
+                    - Fn::Select:
+                        - 2
+                        - Fn::Split:
+                            - /
+                            - Ref: AWS::StackId
+      Roles:
+        - !Ref gdbmanagedeprole
