@@ -16,10 +16,12 @@ This solution includes a cloudformation template and a python script. This docum
 
 ## Requirements
 
-* AWS CLI already configured with Administrator permission
-* Python 3.8
-* [boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html#installation)
-* AWS Account with an Amazon Aurora global database with at least 2 regions. 
+*	AWS CLI already configured with Administrator permission  
+*	[Latest version of Python 3](https://www.python.org/downloads/release/python-395)
+*	[AWS SDK for Python (boto3)](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html#installation)
+*	AWS Account with at least one Amazon Aurora Global Database with at least 2 regions.
+*	[Git command line tools installed](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+
 
 ## Set up
 
