@@ -189,7 +189,7 @@ def main():
                     
                   }
             if (args.consent_anonymous_data_collect.upper() == 'YES' or args.consent_anonymous_data_collect.upper() == 'Y'):
-                r = http.request('POST', "https://ksacb35t5m.execute-api.us-east-1.amazonaws.com/v1/track", body=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'}) 
+                r = http.request('POST', "https://6q5bdekmff.execute-api.us-east-1.amazonaws.com/v1/track", body=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'}) 
             
             
         try_count = 1 #Initialize counter to keep track of regions in a loop
