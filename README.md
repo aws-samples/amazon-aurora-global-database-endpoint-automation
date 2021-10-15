@@ -2,6 +2,9 @@
 
 This solution includes a cloudformation template and a python script. This document will describe how to use this solution. 
 
+Detailed documentation of this solution is published as blog and available by following the link below.
+https://aws.amazon.com/blogs/database/automate-amazon-aurora-global-database-endpoint-management
+
 ## Architecture
 ![Solution Architecture](img/architecture.png)
 
