@@ -131,26 +131,30 @@ Resources:
                           # skip if the endpoint is not active
                           elif (j['EndpointType']=="WRITER" and j['Status']=='inactive'):
                               print("This is a writer enpoint of a secondary region, skipping")    
-                      
+                              
+                          
+                      # If this was a detach-promote event, we consider this as a unplanned failover and delete the ddb entry.
+                      if eventid == "RDS-EVENT-0228":
+                          print("Removing entry for cluster",cluname,"from the dynamodb table")
+                          dresponse = ddbclient.delete_item(
+                          TableName='gdbcnamepair',
+                          Key = {
+                            'clustername':{'S':cluname}
+                                }
+                                  )
+
                       return {
                           'statusCode': 200,
                           'body': json.dumps('event processed')
                   }
+                  
                   else:
                       return {
                           'statusCode': 100,
                           'body': json.dumps('event discarded!')
+                          }
                   
-                  # If this was a detach-promote event, we consider this as a unplanned failover and delete the ddb entry.
-                  if eventid == "RDS-EVENT-0228":
-                      dresponse = ddbclient.delete_item(
-                      TableName='gdbcnamepair',
-                      Key = {
-                        'clustername':{'S':cluname}
-                            }
-                              )
-
-                  }
+                  
               else:
                   print("Cluster entry not found int the table. Event discarded.")
 
@@ -159,7 +163,7 @@ Resources:
     Type: AWS::Events::Rule
     DependsOn: gdbmanagedeplambda
     Properties: 
-      Description: Event Bridge rule to track Aurora global database failover in this region
+      Description: Event Bridge rule to track Aurora Global Database failover in this region
       EventPattern:
         source: 
           - "aws.rds"
@@ -176,11 +180,11 @@ Resources:
           Id: "gdblambdatarget"
 
   #Create the eventbridge rule. This rule triggers when a cluster is removed from a global database (detach-promote).
-  gdbmanagedepeventbrule:
+  gdbmanagedepupeventbrule:
     Type: AWS::Events::Rule
     DependsOn: gdbmanagedeplambda
     Properties: 
-      Description: Event Bridge rule to track Aurora global database failover in this region
+      Description: Event Bridge rule to track Aurora Global Database detach and promote event (unplanned failover)
       EventPattern:
         source: 
           - "aws.rds"
@@ -205,6 +209,15 @@ Resources:
       FunctionName: !GetAtt gdbmanagedeplambda.Arn
       Principal: events.amazonaws.com
       SourceArn: !GetAtt gdbmanagedepeventbrule.Arn
+
+  gdbmanagedepuplambdapermission:
+    Type: AWS::Lambda::Permission
+    DependsOn: gdbmanagedepupeventbrule
+    Properties: 
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt gdbmanagedeplambda.Arn
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt gdbmanagedepupeventbrule.Arn
 
   #Create the role needed for the lambda function.
   gdbmanagedeprole:
@@ -333,10 +346,11 @@ Resources:
         Version: 2012-10-17
         Statement:
           Effect: Allow
-          Action: dynamodb:GetItem
-          Action: dynamodb:PutItem
-          Action: dynamodb:DeleteItem
-          Action: dynamodb:UpdateItem
+          Action: 
+          - dynamodb:GetItem
+          - dynamodb:PutItem
+          - dynamodb:DeleteItem
+          - dynamodb:UpdateItem
           Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${gdbmanagedepddbtbl}"
       ManagedPolicyName: 
         Fn::Join:
