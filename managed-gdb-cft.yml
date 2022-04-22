@@ -84,7 +84,7 @@ Resources:
                   hzID=dresponse['Item']['hostedzoneid']['S']
 
                   # Only process event if the the global database failover completed
-                  if eventid == "RDS-EVENT-0185":
+                  if eventid == "RDS-EVENT-0185" or eventid == "RDS-EVENT-0228":
                       print("Message is: ",mymsg)
                       print("Event Id is: ", eventid)
                       print("Region is ",regioname)
@@ -140,11 +140,21 @@ Resources:
                       return {
                           'statusCode': 100,
                           'body': json.dumps('event discarded!')
+                  
+                  # If this was a detach-promote event, we consider this as a unplanned failover and delete the ddb entry.
+                  if eventid == "RDS-EVENT-0228":
+                      dresponse = ddbclient.delete_item(
+                      TableName='gdbcnamepair',
+                      Key = {
+                        'clustername':{'S':cluname}
+                            }
+                              )
+
                   }
               else:
                   print("Cluster entry not found int the table. Event discarded.")
 
-  #Create the eventbridge rule. This rule triggers everything a global database completes failover.
+  #Create the eventbridge rule. This rule triggers when a global database completes failover.
   gdbmanagedepeventbrule:
     Type: AWS::Events::Rule
     DependsOn: gdbmanagedeplambda
@@ -165,6 +175,26 @@ Resources:
         - Arn: !GetAtt gdbmanagedeplambda.Arn
           Id: "gdblambdatarget"
 
+  #Create the eventbridge rule. This rule triggers when a cluster is removed from a global database (detach-promote).
+  gdbmanagedepeventbrule:
+    Type: AWS::Events::Rule
+    DependsOn: gdbmanagedeplambda
+    Properties: 
+      Description: Event Bridge rule to track Aurora global database failover in this region
+      EventPattern:
+        source: 
+          - "aws.rds"
+        detail-type: 
+          - "RDS DB Cluster Event"
+        detail: 
+          EventCategories: 
+            - "configuration change"
+          EventID:
+            - "RDS-EVENT-0228"
+      Name: AuroraGDBUnplannedfailovertracking
+      Targets: 
+        - Arn: !GetAtt gdbmanagedeplambda.Arn
+          Id: "gdblambdatarget"
   
   #Add  the lambda permission so it can be invoked by the rule
   gdbmanagedeplambdapermission:
@@ -304,6 +334,9 @@ Resources:
         Statement:
           Effect: Allow
           Action: dynamodb:GetItem
+          Action: dynamodb:PutItem
+          Action: dynamodb:DeleteItem
+          Action: dynamodb:UpdateItem
           Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${gdbmanagedepddbtbl}"
       ManagedPolicyName: 
         Fn::Join:
