@@ -19,6 +19,12 @@ def buildstack(region):
         create_stack_response = client.create_stack(
         StackName=stackname,
         TemplateBody=templateBody,
+        Parameters=[
+        {
+            'ParameterKey': 'featuresupport',
+            'ParameterValue': paramfeature
+        }
+        ],
         NotificationARNs=[],
         Capabilities=[
             'CAPABILITY_NAMED_IAM',
@@ -112,6 +118,7 @@ def main():
         parser.add_argument("-t","--template-body", default='managed-gdb-cft.yml', type=str, help="CloudFormation template file")
         parser.add_argument("-r","--region-list", type=str,help="List of regions separated by commas, where the stack will be deployed")
         parser.add_argument("-s","--stack-name", type=str, help="CloudFormation Stack Name")
+        parser.add_argument("-f","--features", default ='all', type=str, help="Choose Feature support (options: planned,unplanned,all(default)")
         parser.add_argument("-a","--consent-anonymous-data-collect", type=str, default='yes',help="Opt-in or out of anonymous one time data collection.(yes/no). Only collects region name, creation time, stack name and uuid portion of the stack id (for uniqueness).")
 
         # process arguments
@@ -120,8 +127,13 @@ def main():
         # dictionary for region and stack ids
         stack_regions = {}
 
+        # get the passed stack name
         global stackname
         stackname = args.stack_name
+
+        # get the feature parameter
+        global paramfeature
+        paramfeature = args.features
 
         http = urllib3.PoolManager()
         
