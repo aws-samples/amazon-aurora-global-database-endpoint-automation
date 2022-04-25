@@ -158,11 +158,11 @@ Resources:
                               if (responsed['ResponseMetadata']['HTTPStatusCode']) == 200:
                                   print("Cname ",recorname1,"Successsfully updated to endpoint ",writerep)
                               else:
-                                  print("Error updateing cnname")
+                                  print("Error updating cnname")
 
                           # skip if the endpoint is not active
                           elif (j['EndpointType']=="WRITER" and j['Status']=='inactive'):
-                              print("This is a writer enpoint of a secondary region, skipping")    
+                              print("This is a writer endpoint of a secondary region, skipping")    
                               
                           
                       # If this was a detach-promote event, we consider this as a unplanned failover and delete the ddb entry.

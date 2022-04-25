@@ -59,7 +59,8 @@ The script takes following parameters:
 **-a OR --consent-anonymous-data-collect**: This script collects anonymous, non PII and non-account identifiable data, to understand how many times this solution has been deployed by customers. Data collection is completely optional, and if you pass ‘no’ as a value, you will be opted out. This parameters is optional, and defaults to ‘yes’. It only collects, stack name, region, timestamp and the UUID portion of the stack id (for uniqueness).
 We only collect data to understand how much the solution is being used, and if it is in-fact being used, then it motivates us to continue to put resources and efforts in it to refine it further and add features. 
  **(Optional)**  
-**-s OR --stack-name**: CloudFormation Stack Name.  **(Required)** 
+**-s OR --stack-name**: CloudFormation Stack Name.  **(Required)**   
+**-f OR --features**: Let's you pick support for both planned and unplanned failover or pick either.  **(Optional)** 
 </details>
 
  3. Once the cloudformation finishes building resources in all regions, execute the following command, passing **all regions** of the  global databases you wish to manage.
@@ -109,7 +110,6 @@ To remove this solution from your account, do following:
 ## Current Limitations
 
 * **Partial SSL Support** - Since the solution uses a Route 53 CNAME, the SSL certificate will not be able to validate the aurora servername. For example pgsql client [verify-full](https://www.postgresql.org/docs/9.1/libpq-ssl.html) or mysql client [ssl-verify-server-cert](https://dev.mysql.com/doc/refman/5.7/en/connection-options.html#option_general_ssl-verify-server-cert) will fail to validate server identity.
-* **Only supports [Managed planned failover](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database-disaster-recovery.html#aurora-global-database-disaster-recovery.managed-failover)** - If you do a manual failover by breaking the global database cluster and then promoting the secondary region cluster to primary (detach and promote), this solution will not be able to detect that condition.
 
 
 ## License Summary
