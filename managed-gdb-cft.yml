@@ -21,13 +21,17 @@ Parameters:
 
 ## Conditions
 Conditions:
-  # Deploy only planned failover support
+  # Condition to deploy only planned failover support
   condPlanned: !Equals [ !Ref featuresupport, "planned" ] 
+  # Condition to deploy only unplanned failover support
   condUnPlanned: !Equals [ !Ref featuresupport, "unplanned" ] 
+  # Condition to deploy both planned and unplanned failover support
   condAll: !Equals [ !Ref featuresupport, "all" ] 
+  # Condition to create the rule needed for planned failover tracking.  This rule  is created for "all" and "planned only".
   condRulePlanned: !Or 
     - !Condition condPlanned
     - !Condition condAll
+  # Condition to create the rule needed for unplanned failover tracking. This rule  is created for "all" and "unplanned only".
   condRuleUnPlanned: !Or 
     - !Condition condUnPlanned
     - !Condition condAll
@@ -460,6 +464,7 @@ Resources:
             - "RDS-EVENT-0185"
       Name: AuroraGDBfailovertracking
       Targets: 
+      # Find the correct Lambda ARN depeding on if "all" or "planned" features were requested
         - Arn: !If [condAll, !GetAtt gdbmanagedeplambdaall.Arn, !GetAtt gdbmanagedeplambdaplanned.Arn]
           Id: "gdblambdatarget"
 
@@ -482,6 +487,7 @@ Resources:
             - "RDS-EVENT-0228"
       Name: AuroraGDBUnplannedfailovertracking
       Targets: 
+      # Find the correct Lambda ARN depeding on if "all" or "unplanned" features were requested
         - Arn: !If [condAll, !GetAtt gdbmanagedeplambdaall.Arn, !GetAtt gdbmanagedeplambdauplanned.Arn]
           Id: "gdblambdatarget"
   
