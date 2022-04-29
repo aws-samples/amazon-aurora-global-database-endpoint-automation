@@ -96,7 +96,7 @@ After deploying this solution, you will see two types of resources:
  2. **Local resources created per region:**
 * **IAM Role**: An IAM role will be created so the Lambda function can assume this role while executing.
 * **Lambda function**: This is the workhorse of the solution. This lambda will be fired on global database failover completion event, and will update the cname.
-* **DynamoDB table**: A dynamDB table named `gdbcnamepair` will be created. This table keeps track of the clusters that will be managed by this solution.
+* **DynamoDB table**: A DynamoDB table named `gdbcnamepair` will be created. This table keeps track of the clusters that will be managed by this solution.
 * **EventBridge Rule**: This EventBridge Rule will be fired when a global database completes failover in the region. This rule has the Lambda function as it's target.
 
 ## Cleanup 
