@@ -6,6 +6,7 @@ Description: Creates supporting resources for automated global database endpoint
 # 8/29/2021 : ausamant - added managed policies for the lambda role instead of inline policies
 #                      - added stackid as a uniquifier for managed policy names
 # 4/23/2022 : ausamant - added ability to choose either planned or unplanned feature support
+# 5/14/2022 : ausamant - now removes clustername entries from all regions ddb table after unplanned failover
 ######################################################################################################################
 
 ## Parameters
@@ -77,6 +78,15 @@ Resources:
           import json
           import string
           import boto3
+          from boto3.dynamodb.types import TypeSerializer,TypeDeserializer
+
+          def dsrl_ddb(dynamo_obj: dict) -> dict:
+              deserializer = TypeDeserializer()
+              return {
+              k: deserializer.deserialize(v) 
+              for k, v in dynamo_obj.items()
+                      } 
+
 
           def lambda_handler(event, context):
               
@@ -165,15 +175,39 @@ Resources:
                               print("This is a writer endpoint of a secondary region, skipping")    
                               
                           
-                      # If this was a detach-promote event, we consider this as a unplanned failover and delete the ddb entry.
+                      # If this was a detach-promote event, we consider this as a unplanned failover and delete the ddb entry from all regions. 
+                      # This makes sure no more subsequent gdb events are processed in any regions for this global cluster.
+
                       if eventid == "RDS-EVENT-0228":
-                          print("Removing entry for cluster",cluname,"from the dynamodb table")
-                          dresponse = ddbclient.delete_item(
-                          TableName='gdbcnamepair',
-                          Key = {
-                            'clustername':{'S':cluname}
-                                }
-                                  )
+
+                          dresponse = ddbclient.get_item(
+                            TableName='gdbcnamepair',
+                            Key= {"clustername": {"S": cluname}},
+                            ProjectionExpression ='allregions')
+
+                          # deserialize map object to dict before processing
+                          gdbobj = dsrl_ddb(dresponse['Item'])
+                          gdbobj = (gdbobj['allregions'])
+    
+                          for gdbclu in (gdbobj):
+
+                            # gdbobj has the data in format {'clustername':'regionname'}. 
+                            # Extract cluster name and region name.
+                            gdbregion = gdbobj[gdbclu]
+                            cluname = gdbclu
+                            
+                            #connect to each region by building the boto client in the loop
+                            gdbclientr = boto3.client("dynamodb",gdbregion)
+                                                      
+                            print("Removing entry for cluster",cluname,"from the dynamodb table in region",gdbregion)
+                
+                            # delete the ddb entry from this region. 
+                            # loop through all regions where the gdb cluster existsed.
+                            dresponse = gdbclientr.delete_item(
+                            TableName='gdbcnamepair',
+                            Key = {
+                              'clustername':{'S':cluname}
+                                  })
 
                       return {
                           'statusCode': 200,
@@ -332,6 +366,16 @@ Resources:
           import json
           import string
           import boto3
+          from boto3.dynamodb.types import TypeSerializer,TypeDeserializer
+
+          def dsrl_ddb(dynamo_obj: dict) -> dict:
+              deserializer = TypeDeserializer()
+              return {
+              k: deserializer.deserialize(v) 
+              for k, v in dynamo_obj.items()
+                      } 
+
+
 
           def lambda_handler(event, context):
               
@@ -419,15 +463,38 @@ Resources:
                           elif (j['EndpointType']=="WRITER" and j['Status']=='inactive'):
                               print("This is a writer enpoint of a secondary region, skipping")    
                           
-                      # Delete the ddb entry.
-                      print("Removing entry for cluster",cluname,"from the dynamodb table")
-                      dresponse = ddbclient.delete_item(
-                      TableName='gdbcnamepair',
-                      Key = {
-                        'clustername':{'S':cluname}
-                            }
-                              )
+                      # If this was a detach-promote event, we consider this as a unplanned failover and delete the ddb entry from all regions. 
+                      # This makes sure no more subsequent gdb events are processed in any regions for this global cluster.
 
+                      dresponse = ddbclient.get_item(
+                        TableName='gdbcnamepair',
+                        Key= {"clustername": {"S": cluname}},
+                        ProjectionExpression ='allregions')
+
+                      # deserialize map object to dict before processing
+                      gdbobj = dsrl_ddb(dresponse['Item'])
+                      gdbobj = (gdbobj['allregions'])
+
+                      for gdbclu in (gdbobj):
+
+                        # gdbobj has the data in format {'clustername':'regionname'}. 
+                        # Extract cluster name and region name.
+                        gdbregion = gdbobj[gdbclu]
+                        cluname = gdbclu
+                        
+                        #connect to each region by building the boto client in the loop
+                        gdbclientr = boto3.client("dynamodb",gdbregion)
+                                                  
+                        print("Removing entry for cluster",cluname,"from the dynamodb table in region",gdbregion)
+            
+                        # delete the ddb entry from this region. 
+                        # loop through all regions where the gdb cluster existed.
+                        dresponse = gdbclientr.delete_item(
+                        TableName='gdbcnamepair',
+                        Key = {
+                          'clustername':{'S':cluname}
+                              })
+                              
                       return {
                           'statusCode': 200,
                           'body': json.dumps('event processed')
@@ -644,7 +711,7 @@ Resources:
           - dynamodb:PutItem
           - dynamodb:DeleteItem
           - dynamodb:UpdateItem
-          Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${gdbmanagedepddbtbl}"
+          Resource: !Sub "arn:aws:dynamodb:*:${AWS::AccountId}:table/${gdbmanagedepddbtbl}"
       ManagedPolicyName: 
         Fn::Join:
           - '-'
