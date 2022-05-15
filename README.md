@@ -110,7 +110,13 @@ To remove this solution from your account, do following:
 ## Current Limitations
 
 * **Partial SSL Support** - Since the solution uses a Route 53 CNAME, the SSL certificate will not be able to validate the aurora servername. For example pgsql client [verify-full](https://www.postgresql.org/docs/9.1/libpq-ssl.html) or mysql client [ssl-verify-server-cert](https://dev.mysql.com/doc/refman/5.7/en/connection-options.html#option_general_ssl-verify-server-cert) will fail to validate server identity.
+* **Non-failover regional cluster promotion** - Currently there is no way to distinguish between a regional cluster promotion using [detach and promote](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database-disaster-recovery.html#aurora-global-database-failover), and just a regional cluster promotion for non-failover/DR reasons.  
+  To address this specific issue, in a situation where you only want to promote a regional cluster, and don't wish the solution to treat it as an unplanned failover event, please use the supplied `delete_gdb_entry.py` script.  
+  For example, if you want to detach and promote a regional cluster named `regional-cluster-1` in `us-wets-2` without causing an unplanned failover, you would run the command below.  
 
+  ```bash
+  python3 delete_gdb_entry.py --regional-cluster-name='regional-cluster-1' --region-name='us-west-2'
+  ```
 
 ## License Summary
 This sample code is made available under a modified MIT license. See the LICENSE file.
