@@ -432,7 +432,7 @@ def main():
                                 if (skipvpc == False):
                                     print ("Vpc",instancevpc," doesn't exist. Adding vpc..")
                                     hzid = update_hosted_zone(hostedzonename,regioname,instancevpc)
-                                    make_ddb_entry(cluname,hzid,recordname,regioname) #Make ddb entry. This should only work from the calling region.
+                                    make_ddb_entry(cluname,hzid,recordname,regioname,gdbobj) #Make ddb entry. This should only work from the calling region.
                                 else:
                                     print ("Vpc",instancevpc," doesn't exist. But skipping due to skip vpc flag.") 
                                 if (exists_hz_record(hostedzonename,recordname)):
