@@ -54,7 +54,7 @@ Follow the instructions below in order to deploy from this repository:
 
 The script takes following parameters:  
 
-**-t OR --template-body**: CloudFormation template file. Defaults to managed0gdb-cft.yml.  **(Optional)**  
+**-t OR --template-body**: CloudFormation template file. Defaults to managed-gdb-cft.yml.  **(Optional)**  
 **-r OR --region-list**: List of regions separated by commas, where the stack will be deployed. **(Required)**  
 **-a OR --consent-anonymous-data-collect**: This script collects anonymous, non PII and non-account identifiable data, to understand how many times this solution has been deployed by customers. Data collection is completely optional, and if you pass ‘no’ as a value, you will be opted out. This parameters is optional, and defaults to ‘yes’. It only collects, stack name, region, timestamp and the UUID portion of the stack id (for uniqueness).
 We only collect data to understand how much the solution is being used, and if it is in-fact being used, then it motivates us to continue to put resources and efforts in it to refine it further and add features. 
